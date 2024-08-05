@@ -21,6 +21,7 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
     
     Mat ldesc, rdesc, ldesct;
     //Mat limg, rimg, limgt;
+    // Mat disp;
     Mat disp(cv::Mat::zeros(limg.size().width,limg.size().height,CV_32F));
     vector<KeyPoint> kpl, kpr, kplt;
 
@@ -40,7 +41,7 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
     auto end = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 	cout << "The function took " << duration.count() << " milliseconds\n";
-	orb->detectAndCompute(rimg, noArray(), kpr, rdesc);
+	// orb->detectAndCompute(rimg, noArray(), kpr, rdesc);
     orb->detectAndCompute(limgt, noArray(), kplt, ldesct);
 
     // ldesc.convertTo(ldesc, CV_32F);
@@ -52,10 +53,10 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
     vector<DMatch> matches, matchest;
     vector<DMatch> good_matches, good_matchest;
 	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(cv::DescriptorMatcher::BRUTEFORCE_HAMMING);
-	matcher->match(ldesc, rdesc, matches);
+	// matcher->match(ldesc, rdesc, matches);
     matcher->match(ldesc, ldesct, matchest);
     
-    filter_matches(matches, good_matches);
+    // filter_matches(matches, good_matches);
     filter_matches(matchest, good_matchest);
     
     // cout<<"good_matches : "<<good_matches.size()<<endl;
@@ -74,21 +75,6 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
         
     }
         
-    
-    // for(DMatch i:good_matches){
-    //     for(DMatch j:good_matchest){
-    //         if(i.queryIdx==j.queryIdx){
-    //             Point3f d;
-    //             comp_depth(disp,kpl[i.queryIdx].pt, kpr[i.trainIdx].pt, d, calib.b, calib.cam);
-    //             if(d.x){
-    //                 points3d.push_back(d);
-    //                 points2d.push_back(kplt[j.trainIdx].pt);    
-    //             }
-
-    //         }
-    //     }        
-    // }
-    // cout<<"points3d : "<<points3d<<endl<<"points2d : "<<points2d<<endl;
     cout<<"points 3d : "<<points3d.size()<<" points2d : "<<points2d.size()<<endl;
     if(points3d.size()>5){
         Mat r;
@@ -102,12 +88,8 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
 }
 
 void disparity(Mat& limg, Mat& rimg, Mat& disp){
-    static Ptr<StereoSGBM> stereo = StereoSGBM::create(0,96,9,8*9*9,32*9*9,1,63,10,100,32); //(0,4*16,7,0,0,0,0,0,0,0,cv::StereoSGBM::MODE_SGBM_3WAY);
-    // stereo->setDisp12MaxDiff(1);
-    // stereo->setPreFilterCap(63);
-    // stereo->setUniquenessRatio(10);
-    // stereo->setSpeckleWindowSize(100);
-    // stereo->setSpeckleRange(32);
+    static Ptr<StereoSGBM> stereo = StereoSGBM::create(0,96,7,8*7*7,32*7*7); //(0,4*16,7,0,0,0,0,0,0,0,cv::StereoSGBM::MODE_SGBM_3WAY);
+
     Mat disp_sgbm;
     stereo->compute(limg,rimg, disp_sgbm);
     disp_sgbm.convertTo(disp, CV_32F, 1.0/16.0f);
@@ -115,6 +97,29 @@ void disparity(Mat& limg, Mat& rimg, Mat& disp){
     // cv::minMaxLoc(disp, &minVal, &maxVal);
     // std::cout << "Min disparity: " << minVal << " Max disparity: " << maxVal << std::endl;
     
+}
+void comp_depth(Mat& disp,Point2f& kp1, Point3f& point3d, double b, Mat k){
+    // kp1.x = kp1.x-613+1;
+    // kp2.x = kp2.x-613+1;
+    // double d = kp1.x -612 - kp2.x+612;
+    float d = disp.at<float>(kp1.y,kp1.x);
+    // cout<<"disparity : "<<d<<endl;
+    double d1 = (k.at<double>(0,0)*b)/d;
+    if(d1>=10){
+        double fx = k.at<double>(0,0);
+        double fy = k.at<double>(1,1);
+        double cx = k.at<double>(0,2);
+        double cy = k.at<double>(1,2);
+        point3d.x = d1*(kp1.x - cx)/fx;
+        point3d.y = d1*(kp1.y - cy)/fy;
+        point3d.z = d1;
+        // cout<<"3d point : "<<point3d.x<<", "<<point3d.y<<", "<<b<<" , "<<d1<<endl;
+    }else{
+        point3d.x = 0;
+        point3d.y = 0;
+        point3d.z = 0;
+    }
+
 }
 
 
@@ -125,7 +130,7 @@ void filter_matches(vector<DMatch>& matches, vector<DMatch>& good_matches){
     double min_dist = min_max.first->distance;
     double max_dist = min_max.second->distance;
     for(unsigned int i=0;i<matches.size();i++){
-        if(matches[i].distance <= max(2*min_dist,30.0)){
+        if(matches[i].distance <= max(2*min_dist,20.0)){
             good_matches.push_back(matches[i]);
         }
     }
@@ -194,36 +199,7 @@ calib_data read_yaml_kitti(const YAML::Node& node1){
 	return calib;
 }
 
-void comp_depth(Mat& disp,Point2f& kp1, Point3f& point3d, double b, Mat k){
-    // kp1.x = kp1.x-613+1;
-    // kp2.x = kp2.x-613+1;
-    // double d = kp1.x -612 - kp2.x+612;
-    float d = disp.at<float>((int)kp1.y,(int)kp1.x);
-    double d1 = (k.at<double>(0,0)*b)/d;
-    if(d<=10 || d>=96 ){
-        point3d.x = d1*((int)kp1.x - k.at<double>(0,2))/k.at<double>(0,0);
-        point3d.y = d1*((int)kp1.y - k.at<double>(1,2))/k.at<double>(1,1);
-        point3d.z = d1;
-        // cout<<"3d point : "<<point3d.x<<", "<<point3d.y<<", "<<point3d.z<<endl;
-    }else{
-        point3d.x = 0;
-        point3d.y = 0;
-        point3d.z = 0;
-    }
 
-    // short d = disp.at<short>(kp1.y,kp1.x);
-    // if(d>100&&d<700){
-    //     double d1 = (k.at<double>(0,0)*b)/d;
-    //     cout<<kp1.x<<" , "<<k.at<double>(0,2)<<" , "<<d<<" , "<<d1<<endl;    
-    //     point3d.x = (d1*(kp1.x - k.at<double>(0,2))/k.at<double>(0,0));
-    //     point3d.y = (d1*(kp1.y - k.at<double>(1,2))/k.at<double>(1,1));
-    //     point3d.z = d1;
-    //     // cout<<" f value "<<k.at<double>(0,0)<<"b value : "<<b<<"depth value : "<<d1<<endl;
-    //     // cout<<"3d point : "<<point3d.x<<", "<<point3d.y<<", "<<point3d.z<<endl;
-    // }else{
-    //     point3d.x = 0;
-    // }
-}
 
 
 

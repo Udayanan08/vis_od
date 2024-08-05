@@ -31,7 +31,7 @@ void match_image(Mat& left_frame, Mat& right_frame, Mat& left_frame1, calib_data
 		file<<endl;
 		file.close();
 	}
-	cout<<"Transformation matrix : "<<endl<<trans_mat<<endl;
+	// cout<<"Transformation matrix : "<<endl<<trans_mat<<endl;
 	// cout<<"Rotation matarix : "<<endl<<R<<endl;
 	// cout<<"Translational matrix : "<<endl<<trans_mat<<endl;
 	R.release();
@@ -42,8 +42,9 @@ void comp_path(Mat& R, Mat& t, Mat& trans_mat){
 	Mat trans_new, trans_new_inv;
 	trans_new = Mat::zeros(4,4,CV_64F);
 	augment(R, t, trans_new);
-	trans_mat = trans_new*trans_mat;
-	cout<<"inverse matrix : "<<trans_new_inv<<endl;
+	invert(trans_new,trans_new_inv);
+	trans_mat = trans_new_inv*trans_mat;
+	// cout<<"inverse matrix : "<<trans_new_inv<<endl;
 }
 
 void augment(Mat& R, Mat& t, Mat& trans_mat){
@@ -77,15 +78,15 @@ int main(int argc, char * argv[]){
 	projMat2 = read_yaml_kitti(config2["P1"]);
 
 	//read image from the folder
-	const cv::String dir = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
-	const cv::String dir1 = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
+	const cv::String dir = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
+	const cv::String dir1 = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
 
 	cv::utils::fs::glob(dir,"*.png", dir_vec,false,false);
     cv::utils::fs::glob(dir1,"*.png", dir_vec1,false,false);
 
 	// img0 = cv::imread(dir_vec[count_], cv::IMREAD_UNCHANGED);
     // img1 = cv::imread(dir_vec1[count_], cv::IMREAD_UNCHANGED);
-	imgt0 = cv::imread(dir_vec[count_+1], cv::IMREAD_GRAYSCALE);
+	imgt0 = cv::imread(dir_vec[count_], cv::IMREAD_GRAYSCALE);
 	count_var = dir_vec.size()-1;
 	trans_flat = Mat::zeros(1,12,CV_64F);
 	R_trans = Mat::eye(3,3,CV_64F);
@@ -106,10 +107,14 @@ int main(int argc, char * argv[]){
 	decomposeProjectionMatrix(projMat1.proj,k,R_,t_);
 	double b1 = t_.at<double>(0,0)/t_.at<double>(3,0);
 	projMat1.cam = k;
+	cout<<"baseline : "<<t_<<endl;
 	decomposeProjectionMatrix(projMat2.proj,k,R_,t_);
 	double b2 = t_.at<double>(0,0)/t_.at<double>(3,0);
+	projMat2.cam = k;
 	projMat1.b = b2-b1;
-	cout<<"baseline : "<<projMat1.b<<endl;
+	cout<<"baseline : "<<t_<<endl;
+
+
 	
 	while(count_<count_var){ 
 		cout<<"count : "<<count_<<endl;
