@@ -20,8 +20,8 @@ void match_image(Mat& left_frame, Mat& right_frame, Mat& left_frame1, calib_data
     // waitKey(0);
 	
 	vector<DMatch> good_matches;
-	fdetectMatch(left_frame, right_frame, left_frame1, projMat1.cam, R, t, match_img2);
-	comp_path(R,t,R_trans,t_trans,trans_mat);
+	fdetectMatch(left_frame, right_frame, left_frame1, projMat1, R, t, match_img2);
+	comp_path(R,t,trans_mat);
 	ofstream file(file_name, std::ios::app);
 	if(file.is_open()){
 		trans_flat = trans_mat.reshape(1,1);
@@ -31,18 +31,19 @@ void match_image(Mat& left_frame, Mat& right_frame, Mat& left_frame1, calib_data
 		file<<endl;
 		file.close();
 	}
-	// cout<<"Transformation matrix : "<<endl<<trans_mat<<endl;
+	cout<<"Transformation matrix : "<<endl<<trans_mat<<endl;
 	// cout<<"Rotation matarix : "<<endl<<R<<endl;
 	// cout<<"Translational matrix : "<<endl<<trans_mat<<endl;
-	// R.release();
-	// t.release();
+	R.release();
+	t.release();
 }
 
-void comp_path(Mat& R, Mat& t, Mat& R_trans, Mat& t_trans, Mat& trans_mat){
-	R_trans = R * R_trans;
-	t_trans = t + t_trans;
-	augment(R_trans, t_trans, trans_mat);
-	
+void comp_path(Mat& R, Mat& t, Mat& trans_mat){
+	Mat trans_new, trans_new_inv;
+	trans_new = Mat::zeros(4,4,CV_64F);
+	augment(R, t, trans_new);
+	trans_mat = trans_new*trans_mat;
+	cout<<"inverse matrix : "<<trans_new_inv<<endl;
 }
 
 void augment(Mat& R, Mat& t, Mat& trans_mat){
@@ -58,6 +59,10 @@ void augment(Mat& R, Mat& t, Mat& trans_mat){
 	trans_mat.at<double>(2,1)=R.at<double>(2,1);
 	trans_mat.at<double>(2,2)=R.at<double>(2,2);
 	trans_mat.at<double>(2,3)=t.at<double>(0,2);
+	trans_mat.at<double>(3,0)=0.0;
+	trans_mat.at<double>(3,1)=0.0;
+	trans_mat.at<double>(3,2)=0.0;
+	trans_mat.at<double>(3,3)=1.0;
 
 }
 
@@ -72,8 +77,8 @@ int main(int argc, char * argv[]){
 	projMat2 = read_yaml_kitti(config2["P1"]);
 
 	//read image from the folder
-	const cv::String dir = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
-	const cv::String dir1 = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
+	const cv::String dir = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
+	const cv::String dir1 = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
 
 	cv::utils::fs::glob(dir,"*.png", dir_vec,false,false);
     cv::utils::fs::glob(dir1,"*.png", dir_vec1,false,false);
@@ -85,7 +90,7 @@ int main(int argc, char * argv[]){
 	trans_flat = Mat::zeros(1,12,CV_64F);
 	R_trans = Mat::eye(3,3,CV_64F);
 	t_trans = Mat::zeros(3,1,CV_64F);
-	trans_mat = Mat::zeros(3,4,CV_64F);
+	trans_mat = Mat::eye(4,4,CV_64F);
 
 	cout<<"dir_vec size : "<<projMat1.proj<<endl;
 	ofstream file(file_name);
@@ -99,19 +104,19 @@ int main(int argc, char * argv[]){
 	}
 	Mat k,R_,t_;
 	decomposeProjectionMatrix(projMat1.proj,k,R_,t_);
-	double b1 = t_.at<double>(0,0);
-	cout<<"output matrices : "<<k<<endl<<R_<<endl<<t_<<endl;
+	double b1 = t_.at<double>(0,0)/t_.at<double>(3,0);
+	projMat1.cam = k;
 	decomposeProjectionMatrix(projMat2.proj,k,R_,t_);
-	double b2 = t_.at<double>(0,0);
-	cout<<"output matrices : "<<k<<endl<<R_<<endl<<t_<<endl;
-	cout<<"baseline : "<<b2-b1<<endl;
+	double b2 = t_.at<double>(0,0)/t_.at<double>(3,0);
+	projMat1.b = b2-b1;
+	cout<<"baseline : "<<projMat1.b<<endl;
+	
 	while(count_<count_var){ 
 		cout<<"count : "<<count_<<endl;
 		img0 = imgt0.clone();
 		imgt0 = cv::imread(dir_vec[count_+1], cv::IMREAD_GRAYSCALE);
 		img1 = cv::imread(dir_vec1[count_], cv::IMREAD_GRAYSCALE);
 		match_image(img0, img1, imgt0, projMat1, projMat2, match_img2,file_name);
-		
 		count_++;
 	}
 

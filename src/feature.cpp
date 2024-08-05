@@ -17,22 +17,23 @@ void posecomp(vector<KeyPoint>& kp1, vector<KeyPoint>& kp2, vector<DMatch>& g_ma
     
 }
 
-void fdetectMatch(Mat& limg1, Mat& rimg1, Mat& limg2, Mat& k, Mat& R, Mat& t, Mat& match_img2){
+void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, Mat& t, Mat& match_img2){
     
     Mat ldesc, rdesc, ldesct;
-    Mat limg, rimg, limgt;
+    //Mat limg, rimg, limgt;
+    Mat disp(cv::Mat::zeros(limg.size().width,limg.size().height,CV_32F));
     vector<KeyPoint> kpl, kpr, kplt;
 
-    Ptr<CLAHE> clahe = createCLAHE();
-    clahe->setClipLimit(4);
-    clahe->setTilesGridSize(Size(4,4));
+    // Ptr<CLAHE> clahe = createCLAHE();
+    // clahe->setClipLimit(4);
+    // clahe->setTilesGridSize(Size(4,4));
     
-    clahe->apply(limg1, limg);
-    clahe->apply(rimg1, rimg);
-    clahe->apply(limg2, limgt);
+    // clahe->apply(limg1, limg);
+    // clahe->apply(rimg1, rimg);
+    // clahe->apply(limg2, limgt);
       
     //FEATURE DETECTOR
-
+    disparity(limg, rimg, disp);
     Ptr<ORB> orb = ORB::create(1000, 1.2, 16, 20, 2, 2, ORB::HARRIS_SCORE, 20, 15);//
     auto start = std::chrono::high_resolution_clock::now();
     orb->detectAndCompute(limg, noArray(), kpl, ldesc);
@@ -59,26 +60,39 @@ void fdetectMatch(Mat& limg1, Mat& rimg1, Mat& limg2, Mat& k, Mat& R, Mat& t, Ma
     
     // cout<<"good_matches : "<<good_matches.size()<<endl;
     // cout<<"good_matches_t : "<<good_matchest.size()<<endl;
+
+    
     vector<Point3f> points3d;
     vector<Point2f> points2d;
-    for(DMatch i:good_matches){
-        for(DMatch j:good_matchest){
-            if(i.queryIdx==j.queryIdx){
-                Point3f d;
-                comp_depth(kpl[i.queryIdx].pt, kpr[i.trainIdx].pt, d, 0.5707, k);
-                if(d.x){
-                    points3d.push_back(d);
-                    points2d.push_back(kplt[j.trainIdx].pt);    
-                }
-
-            }
-        }        
+    for(DMatch i:good_matchest){
+        Point3f d; 
+        comp_depth(disp,kpl[i.queryIdx].pt, d, calib.b, calib.cam);
+        if(d.x){
+            points2d.push_back(kplt[i.trainIdx].pt);
+            points3d.push_back(d);
+        }
+        
     }
+        
+    
+    // for(DMatch i:good_matches){
+    //     for(DMatch j:good_matchest){
+    //         if(i.queryIdx==j.queryIdx){
+    //             Point3f d;
+    //             comp_depth(disp,kpl[i.queryIdx].pt, kpr[i.trainIdx].pt, d, calib.b, calib.cam);
+    //             if(d.x){
+    //                 points3d.push_back(d);
+    //                 points2d.push_back(kplt[j.trainIdx].pt);    
+    //             }
+
+    //         }
+    //     }        
+    // }
     // cout<<"points3d : "<<points3d<<endl<<"points2d : "<<points2d<<endl;
-    // cout<<"points 3d : "<<points3d.size()<<" points2d : "<<points2d.size()<<endl;
+    cout<<"points 3d : "<<points3d.size()<<" points2d : "<<points2d.size()<<endl;
     if(points3d.size()>5){
         Mat r;
-        solvePnPRansac(points3d, points2d, k, noArray(), r, t, false,100);
+        solvePnPRansac(points3d, points2d, calib.cam, noArray(), r, t, false,100);
         Rodrigues(r,R);
     }
     
@@ -87,14 +101,31 @@ void fdetectMatch(Mat& limg1, Mat& rimg1, Mat& limg2, Mat& k, Mat& R, Mat& t, Ma
  	Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 }
 
+void disparity(Mat& limg, Mat& rimg, Mat& disp){
+    static Ptr<StereoSGBM> stereo = StereoSGBM::create(0,96,9,8*9*9,32*9*9,1,63,10,100,32); //(0,4*16,7,0,0,0,0,0,0,0,cv::StereoSGBM::MODE_SGBM_3WAY);
+    // stereo->setDisp12MaxDiff(1);
+    // stereo->setPreFilterCap(63);
+    // stereo->setUniquenessRatio(10);
+    // stereo->setSpeckleWindowSize(100);
+    // stereo->setSpeckleRange(32);
+    Mat disp_sgbm;
+    stereo->compute(limg,rimg, disp_sgbm);
+    disp_sgbm.convertTo(disp, CV_32F, 1.0/16.0f);
+    // double minVal, maxVal;
+    // cv::minMaxLoc(disp, &minVal, &maxVal);
+    // std::cout << "Min disparity: " << minVal << " Max disparity: " << maxVal << std::endl;
+    
+}
+
+
 void filter_matches(vector<DMatch>& matches, vector<DMatch>& good_matches){
     auto min_max = minmax_element(matches.begin(), matches.end(),[](const DMatch &m1, const DMatch &m2) { return m1.distance < m2.distance; });
     // cout<<"min_dist - "<<min_max.first->distance<<endl;
     // cout<<"max_dist - "<<min_max.second->distance<<endl;
     double min_dist = min_max.first->distance;
     double max_dist = min_max.second->distance;
-    for(int i=0;i<matches.size();i++){
-        if(matches[i].distance <= max(2*min_dist,20.0)){
+    for(unsigned int i=0;i<matches.size();i++){
+        if(matches[i].distance <= max(2*min_dist,30.0)){
             good_matches.push_back(matches[i]);
         }
     }
@@ -163,14 +194,35 @@ calib_data read_yaml_kitti(const YAML::Node& node1){
 	return calib;
 }
 
-void comp_depth(Point2f& kp1, Point2f& kp2, Point3f& point3d, double b, Mat k){
-        double d = abs(kp1.x - kp2.x);
-        if(d!=0&&abs(kp1.y-kp2.y)<1){
-            double d1 = (k.at<double>(0,0)*b)/d;        
-            point3d.x = (d1*(kp1.x - k.at<double>(0,2))/k.at<double>(0,0));
-            point3d.y = (d1*(kp1.y - k.at<double>(1,2))/k.at<double>(1,1));
-            point3d.z = d1;
-        }
+void comp_depth(Mat& disp,Point2f& kp1, Point3f& point3d, double b, Mat k){
+    // kp1.x = kp1.x-613+1;
+    // kp2.x = kp2.x-613+1;
+    // double d = kp1.x -612 - kp2.x+612;
+    float d = disp.at<float>((int)kp1.y,(int)kp1.x);
+    double d1 = (k.at<double>(0,0)*b)/d;
+    if(d<=10 || d>=96 ){
+        point3d.x = d1*((int)kp1.x - k.at<double>(0,2))/k.at<double>(0,0);
+        point3d.y = d1*((int)kp1.y - k.at<double>(1,2))/k.at<double>(1,1);
+        point3d.z = d1;
+        // cout<<"3d point : "<<point3d.x<<", "<<point3d.y<<", "<<point3d.z<<endl;
+    }else{
+        point3d.x = 0;
+        point3d.y = 0;
+        point3d.z = 0;
+    }
+
+    // short d = disp.at<short>(kp1.y,kp1.x);
+    // if(d>100&&d<700){
+    //     double d1 = (k.at<double>(0,0)*b)/d;
+    //     cout<<kp1.x<<" , "<<k.at<double>(0,2)<<" , "<<d<<" , "<<d1<<endl;    
+    //     point3d.x = (d1*(kp1.x - k.at<double>(0,2))/k.at<double>(0,0));
+    //     point3d.y = (d1*(kp1.y - k.at<double>(1,2))/k.at<double>(1,1));
+    //     point3d.z = d1;
+    //     // cout<<" f value "<<k.at<double>(0,0)<<"b value : "<<b<<"depth value : "<<d1<<endl;
+    //     // cout<<"3d point : "<<point3d.x<<", "<<point3d.y<<", "<<point3d.z<<endl;
+    // }else{
+    //     point3d.x = 0;
+    // }
 }
 
 

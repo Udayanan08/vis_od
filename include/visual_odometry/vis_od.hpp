@@ -28,7 +28,7 @@ VideoCapture cap;
 Mat match_img, match_img2;
 Mat R,t;
 Mat trans_flat(1,12,CV_64F);
-Mat trans_mat(3,4,CV_64F);
+Mat trans_mat(4,4,CV_64F);
 Mat R_trans(3,3,CV_64F);
 Mat t_trans(3,1,CV_64F);
 
@@ -47,7 +47,7 @@ vector<DMatch> good_matches;
 
 void match_image(Mat& , Mat&, Mat&, calib_data& , calib_data&, Mat&, String&);
 void augment(Mat&, Mat&, Mat&);
-void comp_path(Mat&, Mat&, Mat&, Mat&, Mat&);
+void comp_path(Mat&, Mat&, Mat&);
 
 //getting projection matrices from calibration file
 
