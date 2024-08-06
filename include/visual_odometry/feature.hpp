@@ -27,7 +27,6 @@ struct calib_data{
 void fdetectMatch(Mat&, Mat&, Mat&, calib_data&, Mat&, Mat&, Mat&);
 
 void depthcomp(Mat&, Mat&, Mat&);
-void posecomp(vector<KeyPoint>&, vector<KeyPoint>&, vector<DMatch>&, calib_data&, calib_data&, Mat&, Mat&);
 calib_data read_yaml2(const YAML::Node& , const YAML::Node& , const YAML::Node& );
 calib_data read_yaml_kitti(const YAML::Node&);
 void filter_matches(vector<DMatch>&, vector<DMatch>&);

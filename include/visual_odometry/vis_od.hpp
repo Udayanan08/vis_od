@@ -12,6 +12,7 @@
 // #include <cv_bridge/cv_bridge.h>
 #include <chrono>
 #include <fstream>
+#include <sstream>
 
 calib_data projMat1;
 calib_data projMat2;
@@ -31,6 +32,7 @@ Mat trans_flat(1,12,CV_64F);
 Mat trans_mat(4,4,CV_64F);
 Mat R_trans(3,3,CV_64F);
 Mat t_trans(3,1,CV_64F);
+Mat proj(3,4,CV_64F);
 
 vector<cv::String> dir_vec;
 vector<cv::String> dir_vec1;
@@ -48,9 +50,3 @@ vector<DMatch> good_matches;
 void match_image(Mat& , Mat&, Mat&, calib_data& , calib_data&, Mat&, String&);
 void augment(Mat&, Mat&, Mat&);
 void comp_path(Mat&, Mat&, Mat&);
-
-//getting projection matrices from calibration file
-
-// calib_data projMat1 = read_yaml2(config1["camera_matrix"], config1["distortion_coefficients"], config1["P0"]);
-// calib_data projMat2 = read_yaml2(config2["camera_matrix"], config2["distortion_coefficients"], config2["P1"]);
-

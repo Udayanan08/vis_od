@@ -1,22 +1,5 @@
 #include "../include/visual_odometry/feature.hpp"
 
-void posecomp(vector<KeyPoint>& kp1, vector<KeyPoint>& kp2, vector<DMatch>& g_matches, calib_data& calib1, calib_data& calib2, Mat& R, Mat& t){
-    vector<Point2f> point1, point2;
-
-    for(DMatch i:g_matches){
-        point1.push_back(kp1[i.queryIdx].pt);
-        point2.push_back(kp2[i.trainIdx].pt);
-    }
-    
-    Mat E;
-    //Mat E = findEssentialMat(point1, point2, calib1.cam, cv::RANSAC, 0.999, 1.0, 1000, noArray());
-    cout<<"match size - "<<g_matches.size()<<endl;
-    //cout<<"Essential Matrix - "<<E.size()<<endl;
-    recoverPose(point1, point2, calib1.cam, calib1.dist, calib2.cam, calib2.dist, E, R, t,cv::RANSAC,0.999, 1.0, noArray());
-
-    
-}
-
 void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, Mat& t, Mat& match_img2){
     
     Mat ldesc, rdesc, ldesct;
@@ -35,13 +18,10 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
       
     //FEATURE DETECTOR
     disparity(limg, rimg, disp);
-    Ptr<ORB> orb = ORB::create(1000, 1.2, 16, 20, 2, 2, ORB::HARRIS_SCORE, 20, 15);//
-    auto start = std::chrono::high_resolution_clock::now();
+    Ptr<ORB> orb = ORB::create(2000, 1.2, 16, 20, 2, 2, ORB::HARRIS_SCORE, 20, 15);//
+    // 
     orb->detectAndCompute(limg, noArray(), kpl, ldesc);
-    auto end = std::chrono::high_resolution_clock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-	cout << "The function took " << duration.count() << " milliseconds\n";
-	// orb->detectAndCompute(rimg, noArray(), kpr, rdesc);
+
     orb->detectAndCompute(limgt, noArray(), kplt, ldesct);
 
     // ldesc.convertTo(ldesc, CV_32F);
@@ -49,19 +29,12 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
     // ldesct.convertTo(ldesct, CV_32F);
 
     //FEATURE MATCHER
-    cout<<"---------------"<<endl;
     vector<DMatch> matches, matchest;
     vector<DMatch> good_matches, good_matchest;
 	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(cv::DescriptorMatcher::BRUTEFORCE_HAMMING);
-	// matcher->match(ldesc, rdesc, matches);
     matcher->match(ldesc, ldesct, matchest);
     
-    // filter_matches(matches, good_matches);
     filter_matches(matchest, good_matchest);
-    
-    // cout<<"good_matches : "<<good_matches.size()<<endl;
-    // cout<<"good_matches_t : "<<good_matchest.size()<<endl;
-
     
     vector<Point3f> points3d;
     vector<Point2f> points2d;
@@ -72,38 +45,26 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
             points2d.push_back(kplt[i.trainIdx].pt);
             points3d.push_back(d);
         }
-        
     }
-        
-    cout<<"points 3d : "<<points3d.size()<<" points2d : "<<points2d.size()<<endl;
+    
     if(points3d.size()>5){
         Mat r;
         solvePnPRansac(points3d, points2d, calib.cam, noArray(), r, t, false,100);
         Rodrigues(r,R);
     }
     
-    // match_img2 = rimg.clone();
     drawMatches(limg, kpl, rimg, kpr, good_matches, match_img2, Scalar::all(-1),
  	Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 }
 
 void disparity(Mat& limg, Mat& rimg, Mat& disp){
     static Ptr<StereoSGBM> stereo = StereoSGBM::create(0,96,7,8*7*7,32*7*7); //(0,4*16,7,0,0,0,0,0,0,0,cv::StereoSGBM::MODE_SGBM_3WAY);
-
     Mat disp_sgbm;
     stereo->compute(limg,rimg, disp_sgbm);
-    disp_sgbm.convertTo(disp, CV_32F, 1.0/16.0f);
-    // double minVal, maxVal;
-    // cv::minMaxLoc(disp, &minVal, &maxVal);
-    // std::cout << "Min disparity: " << minVal << " Max disparity: " << maxVal << std::endl;
-    
+    disp_sgbm.convertTo(disp, CV_32F, 1.0/16.0f);    
 }
 void comp_depth(Mat& disp,Point2f& kp1, Point3f& point3d, double b, Mat k){
-    // kp1.x = kp1.x-613+1;
-    // kp2.x = kp2.x-613+1;
-    // double d = kp1.x -612 - kp2.x+612;
     float d = disp.at<float>(kp1.y,kp1.x);
-    // cout<<"disparity : "<<d<<endl;
     double d1 = (k.at<double>(0,0)*b)/d;
     if(d1>=10){
         double fx = k.at<double>(0,0);
@@ -113,7 +74,6 @@ void comp_depth(Mat& disp,Point2f& kp1, Point3f& point3d, double b, Mat k){
         point3d.x = d1*(kp1.x - cx)/fx;
         point3d.y = d1*(kp1.y - cy)/fy;
         point3d.z = d1;
-        // cout<<"3d point : "<<point3d.x<<", "<<point3d.y<<", "<<b<<" , "<<d1<<endl;
     }else{
         point3d.x = 0;
         point3d.y = 0;
