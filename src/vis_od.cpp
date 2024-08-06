@@ -68,37 +68,35 @@ int main(int argc, char * argv[]){
 
 	cv::String f_n = argv[1];
 	cv::String file_name = f_n + ".txt";
-	proj = Mat::zeros(3,4,CV_64F);
+	proj_ = Mat::zeros(3,4,CV_64F);
 	string line;
 	string item;
-	ifstream config("/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/00/calib.txt");
+	ifstream config("/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/00/calib.txt");
 	vector<double> elements;
 
 	while(std::getline(config, line)){
 		stringstream ss(line);
 		ss>>item;
 		while(ss>>item){
-			if(std::stod(item)){
-				elements.push_back(stod(item));
-			}
+			elements.push_back(stod(item));
 		}
 		
-		proj.at<double>(0,0)=elements[0];
-		proj.at<double>(0,1)=elements[1];
-		proj.at<double>(0,2)=elements[2];
-		proj.at<double>(0,3)=elements[3];
-		proj.at<double>(1,0)=elements[4];
-		proj.at<double>(1,1)=elements[5];
-		proj.at<double>(1,2)=elements[6];
-		proj.at<double>(1,3)=elements[7];
-		proj.at<double>(2,0)=elements[8];
-		proj.at<double>(2,1)=elements[9];
-		proj.at<double>(2,2)=elements[10];
-		proj.at<double>(2,3)=elements[11];
+		proj_.at<double>(0,0)=elements[0];
+		proj_.at<double>(0,1)=elements[1];
+		proj_.at<double>(0,2)=elements[2];
+		proj_.at<double>(0,3)=elements[3];
+		proj_.at<double>(1,0)=elements[4];
+		proj_.at<double>(1,1)=elements[5];
+		proj_.at<double>(1,2)=elements[6];
+		proj_.at<double>(1,3)=elements[7];
+		proj_.at<double>(2,0)=elements[8];
+		proj_.at<double>(2,1)=elements[9];
+		proj_.at<double>(2,2)=elements[10];
+		proj_.at<double>(2,3)=elements[11];
 	}
 
 
-	cout<<proj<<endl;
+	cout<<proj_<<endl<<endl<<endl<<endl;
 	// Reading the projection matrix
 	YAML::Node config1 = YAML::LoadFile("../config/kitti_gray.yaml");
 	YAML::Node config2 = YAML::LoadFile("../config/kitti_gray.yaml");
@@ -106,8 +104,8 @@ int main(int argc, char * argv[]){
 	projMat2 = read_yaml_kitti(config2["P1"]);
 
 	//read image from the folder
-	const cv::String dir = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
-	const cv::String dir1 = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
+	const cv::String dir = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
+	const cv::String dir1 = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
 
 	cv::utils::fs::glob(dir,"*.png", dir_vec,false,false);
     cv::utils::fs::glob(dir1,"*.png", dir_vec1,false,false);
@@ -140,9 +138,6 @@ int main(int argc, char * argv[]){
 	projMat1.b = b2-b1;
 
 	while(count_<count_var){
-		std::cout << "\33[A";
-		std::cout << "\33[2K";
-		cout<<"\rcount : "<<"\033[0;32m"<<count_<<"\033[0m"<<flush;
 		img0 = imgt0.clone();
 		imgt0 = cv::imread(dir_vec[count_+1], cv::IMREAD_GRAYSCALE);
 		img1 = cv::imread(dir_vec1[count_], cv::IMREAD_GRAYSCALE);
@@ -150,6 +145,9 @@ int main(int argc, char * argv[]){
 		match_image(img0, img1, imgt0, projMat1, projMat2, match_img2,file_name);
 		auto end = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+		std::cout << "\33[A";
+		std::cout << "\33[2K";
+		cout<<"\rcount : "<<"\033[0;32m"<<count_<<"\033[0m"<<flush;
 		cout << "\nTook " << "\033[0;32m"<<duration.count()<<"\033[0m" << " milliseconds to compute "<<flush;
 		count_++;
 	}

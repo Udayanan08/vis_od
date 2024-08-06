@@ -32,7 +32,7 @@ Mat trans_flat(1,12,CV_64F);
 Mat trans_mat(4,4,CV_64F);
 Mat R_trans(3,3,CV_64F);
 Mat t_trans(3,1,CV_64F);
-Mat proj(3,4,CV_64F);
+Mat proj_(3,4,CV_64F);
 
 vector<cv::String> dir_vec;
 vector<cv::String> dir_vec1;
