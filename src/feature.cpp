@@ -159,7 +159,3 @@ calib_data read_yaml_kitti(const YAML::Node& node1){
 	return calib;
 }
 
-
-
-
-

@@ -8,11 +8,15 @@
 #include <yaml-cpp/yaml.h>
 #include <cmath>
 #include <chrono>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+
 
 
 
 using namespace std;
 using namespace cv;
+using namespace Eigen;
 
 struct calib_data{
 	Mat cam, dist, proj;
@@ -32,5 +36,6 @@ calib_data read_yaml_kitti(const YAML::Node&);
 void filter_matches(vector<DMatch>&, vector<DMatch>&);
 void comp_depth(Mat&, Point2f&, Point3f&, double, Mat);
 void disparity(Mat&, Mat&, Mat&);
+void DrawTrajectory(vector<Isometry3d, Eigen::aligned_allocator<Isometry3d>>);
 
 

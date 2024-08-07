@@ -3,6 +3,7 @@
 using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
+namespace plt = matplotlibcpp;
 
 
 
@@ -63,40 +64,46 @@ void augment(Mat& R, Mat& t, Mat& trans_mat){
 
 }
 
-
+void get_config(vector<double>& elements, Mat& proj_){
+	proj_.at<double>(0,0)=elements[0];
+	proj_.at<double>(0,1)=elements[1];
+	proj_.at<double>(0,2)=elements[2];
+	proj_.at<double>(0,3)=elements[3];
+	proj_.at<double>(1,0)=elements[4];
+	proj_.at<double>(1,1)=elements[5];
+	proj_.at<double>(1,2)=elements[6];
+	proj_.at<double>(1,3)=elements[7];
+	proj_.at<double>(2,0)=elements[8];
+	proj_.at<double>(2,1)=elements[9];
+	proj_.at<double>(2,2)=elements[10];
+	proj_.at<double>(2,3)=elements[11];
+}
 int main(int argc, char * argv[]){
 
 	cv::String f_n = argv[1];
 	cv::String file_name = f_n + ".txt";
-	proj_ = Mat::zeros(3,4,CV_64F);
-	string line;
-	string item;
-	ifstream config("/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/00/calib.txt");
-	vector<double> elements;
+	// proj_ = Mat::zeros(3,4,CV_64F);
+	// string line, line2;
+	// string item, item2;
+	// ifstream config("/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/calib.txt");
+	// vector<double> elements, elements2;
 
-	while(std::getline(config, line)){
-		stringstream ss(line);
-		ss>>item;
-		while(ss>>item){
-			elements.push_back(stod(item));
-		}
-		
-		proj_.at<double>(0,0)=elements[0];
-		proj_.at<double>(0,1)=elements[1];
-		proj_.at<double>(0,2)=elements[2];
-		proj_.at<double>(0,3)=elements[3];
-		proj_.at<double>(1,0)=elements[4];
-		proj_.at<double>(1,1)=elements[5];
-		proj_.at<double>(1,2)=elements[6];
-		proj_.at<double>(1,3)=elements[7];
-		proj_.at<double>(2,0)=elements[8];
-		proj_.at<double>(2,1)=elements[9];
-		proj_.at<double>(2,2)=elements[10];
-		proj_.at<double>(2,3)=elements[11];
-	}
+	// getline(config, line);
+	// getline(config, line2);
+	// stringstream ss(line);
+	// stringstream ss2(line2);
+	// ss>>item;
+	// ss2>>item2;
+	// cout <<line2<<"-------------------------------"<<endl;
+	// while(ss>>item){
+	// 	elements.push_back(stod(item));
+	// }
+	// while(ss2>>item2){
+	// 	elements2.push_back(stod(item2));
+	// }
+	// get_config(elements, projMat1.proj);
+	// get_config(elements2, projMat2.proj);
 
-
-	cout<<proj_<<endl<<endl<<endl<<endl;
 	// Reading the projection matrix
 	YAML::Node config1 = YAML::LoadFile("../config/kitti_gray.yaml");
 	YAML::Node config2 = YAML::LoadFile("../config/kitti_gray.yaml");
@@ -104,8 +111,8 @@ int main(int argc, char * argv[]){
 	projMat2 = read_yaml_kitti(config2["P1"]);
 
 	//read image from the folder
-	const cv::String dir = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
-	const cv::String dir1 = "/home/ud/ccodes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
+	const cv::String dir = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_0/";
+	const cv::String dir1 = "/home/drdo/c_codes/datasets/data_odometry_gray/dataset/sequences/"+f_n+"/image_1/";
 
 	cv::utils::fs::glob(dir,"*.png", dir_vec,false,false);
     cv::utils::fs::glob(dir1,"*.png", dir_vec1,false,false);
@@ -137,6 +144,17 @@ int main(int argc, char * argv[]){
 	projMat2.cam = k;
 	projMat1.b = b2-b1;
 
+	// Plotting the results
+	plt::ion();
+    plt::figure();
+    plt::xlabel("X-axis");
+    plt::ylabel("Y-axis");
+    plt::title("Trajectory Plot");
+	plt::xlim(-400,400);
+	plt::ylim(0,500);
+	vector<double> x;
+	vector<double> y;
+
 	while(count_<count_var){
 		img0 = imgt0.clone();
 		imgt0 = cv::imread(dir_vec[count_+1], cv::IMREAD_GRAYSCALE);
@@ -150,8 +168,16 @@ int main(int argc, char * argv[]){
 		cout<<"\rcount : "<<"\033[0;32m"<<count_<<"\033[0m"<<flush;
 		cout << "\nTook " << "\033[0;32m"<<duration.count()<<"\033[0m" << " milliseconds to compute "<<flush;
 		count_++;
+		
+		x.push_back(trans_mat.at<double>(0,3));
+		y.push_back(trans_mat.at<double>(2,3));
+		plt::plot(vector<double>{trans_mat.at<double>(0,3)},vector<double>{trans_mat.at<double>(2,3)},"ro-");
+		
+		plt::draw();
+		plt::pause(0.01);
 	}
 	cout<<endl;
+	plt::show();
 	return 0;	
 }
 

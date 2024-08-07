@@ -13,6 +13,7 @@
 #include <chrono>
 #include <fstream>
 #include <sstream>
+#include "matplotlibcpp.h"
 
 calib_data projMat1;
 calib_data projMat2;
@@ -50,3 +51,4 @@ vector<DMatch> good_matches;
 void match_image(Mat& , Mat&, Mat&, calib_data& , calib_data&, Mat&, String&);
 void augment(Mat&, Mat&, Mat&);
 void comp_path(Mat&, Mat&, Mat&);
+void get_config(vector<double>&, Mat&);
