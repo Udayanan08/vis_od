@@ -55,6 +55,7 @@ void fdetectMatch(Mat& limg, Mat& rimg, Mat& limgt, calib_data& calib, Mat& R, M
     
     drawMatches(limg, kpl, rimg, kpr, good_matches, match_img2, Scalar::all(-1),
  	Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+    match_img2 = disp.clone();
 }
 
 void disparity(Mat& limg, Mat& rimg, Mat& disp){

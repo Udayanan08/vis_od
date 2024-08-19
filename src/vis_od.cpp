@@ -175,9 +175,13 @@ int main(int argc, char * argv[]){
 		
 		plt::draw();
 		plt::pause(0.01);
+		// imshow("image", match_img2);
+		// if(waitKey(33)==27){
+		// 	break;
+		// }
 	}
 	cout<<endl;
-	plt::show();
+	// plt::show();
 	return 0;	
 }
 
